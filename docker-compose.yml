@@ -17,10 +17,20 @@ services:
       - db
     ports:
       - "8080:8080"
+    volumes:
+      # En la EC2 EFS_HOST_PATH=/mnt/efs (punto de montaje del EFS); en local, carpeta ./efs
+      - ${EFS_HOST_PATH:-./efs}:/data/efs
     environment:
       DB_URL: jdbc:postgresql://db:5432/eventos
       DB_USER: postgres
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      EFS_PATH: /data/efs
+      S3_BUCKET: ${S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      # Solo para pruebas locales con credenciales del Learner Lab; en la EC2 quedan vacias y se usa el rol
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
 
 volumes:
   pgdata:

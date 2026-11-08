@@ -46,6 +46,7 @@ public class CompraController {
 
         Compra compra = new Compra();
         compra.setEvento(evento);
+        compra.setUsuario(request.usuario());
         compra.setCantidad(request.cantidad());
         compra.setPrecioUnitario(evento.getPrecio());
         compra.setPrecioTotal(evento.getPrecio().multiply(BigDecimal.valueOf(request.cantidad())));

@@ -17,6 +17,7 @@ public class Compra {
     @JoinColumn(name = "evento_id")
     private Evento evento;
 
+    private String usuario;
     private int cantidad;
     private BigDecimal precioUnitario;
     private BigDecimal precioTotal;
@@ -25,6 +26,8 @@ public class Compra {
     public Long getId() { return id; }
     public Evento getEvento() { return evento; }
     public void setEvento(Evento evento) { this.evento = evento; }
+    public String getUsuario() { return usuario; }
+    public void setUsuario(String usuario) { this.usuario = usuario; }
     public int getCantidad() { return cantidad; }
     public void setCantidad(int cantidad) { this.cantidad = cantidad; }
     public BigDecimal getPrecioUnitario() { return precioUnitario; }

@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+env:
+  AWS_REGION: us-east-1
+
 jobs:
   build-push:
     runs-on: ubuntu-latest
@@ -43,12 +46,24 @@ jobs:
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          EFS_ID: ${{ secrets.EFS_ID }}
+          EFS_HOST_PATH: /mnt/efs
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: DOCKERHUB_USERNAME,DB_PASSWORD
+          envs: DOCKERHUB_USERNAME,DB_PASSWORD,S3_BUCKET,EFS_ID,EFS_HOST_PATH,AWS_REGION
           script: |
+            set -e
+            # Montar el EFS (solo si aun no esta montado, ej. tras reiniciar el laboratorio)
+            dpkg -s nfs-common >/dev/null 2>&1 || (sudo apt-get update -q && sudo apt-get install -y -q nfs-common)
+            sudo mkdir -p $EFS_HOST_PATH
+            mountpoint -q $EFS_HOST_PATH || sudo mount -t nfs4 \
+              -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport \
+              $EFS_ID.efs.$AWS_REGION.amazonaws.com:/ $EFS_HOST_PATH
+            sudo mkdir -p $EFS_HOST_PATH/tickets
+
             cd ~/eventos
             docker compose pull app
             docker compose up -d --no-build

@@ -32,5 +32,10 @@ build/
 ### VS Code ###
 .vscode/
 
+### EFS simulado en local ###
+efs/
+
 ### Documentacion local (no se sube) ###
 *.odt
+
+.~lock.*#

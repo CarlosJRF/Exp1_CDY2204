@@ -1,14 +1,19 @@
 package cl.duoc.eventos.controller;
 
+import cl.duoc.eventos.dto.EstadisticasGeneralesResponse;
+import cl.duoc.eventos.dto.EstadisticasResponse;
+import cl.duoc.eventos.dto.VentasEventoResponse;
 import cl.duoc.eventos.model.Evento;
 import cl.duoc.eventos.repository.CompraRepository;
 import cl.duoc.eventos.repository.EventoRepository;
+import cl.duoc.eventos.repository.TicketRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -17,10 +22,12 @@ public class EventoController {
 
     private final EventoRepository eventos;
     private final CompraRepository compras;
+    private final TicketRepository tickets;
 
-    public EventoController(EventoRepository eventos, CompraRepository compras) {
+    public EventoController(EventoRepository eventos, CompraRepository compras, TicketRepository tickets) {
         this.eventos = eventos;
         this.compras = compras;
+        this.tickets = tickets;
     }
 
     @GetMapping
@@ -56,6 +63,27 @@ public class EventoController {
         }
         eventos.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Entradas vendidas y ganancias (ingresos por ventas) de cada evento, más los totales generales. */
+    @GetMapping("/estadisticas")
+    public EstadisticasGeneralesResponse estadisticasGenerales() {
+        List<VentasEventoResponse> detalle = eventos.findAll().stream()
+                .map(e -> new VentasEventoResponse(e.getId(), e.getNombre(),
+                        compras.sumarEntradas(e.getId()), compras.sumarGanancias(e.getId())))
+                .toList();
+        long totalEntradas = detalle.stream().mapToLong(VentasEventoResponse::entradasVendidas).sum();
+        BigDecimal totalGanancias = detalle.stream().map(VentasEventoResponse::ganancias)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new EstadisticasGeneralesResponse(detalle, totalEntradas, totalGanancias);
+    }
+
+    @GetMapping("/{id}/estadisticas")
+    public EstadisticasResponse estadisticas(@PathVariable Long id) {
+        Evento evento = buscar(id);
+        return new EstadisticasResponse(id, evento.getNombre(),
+                compras.countByEventoId(id), compras.sumarEntradas(id), compras.sumarGanancias(id),
+                tickets.countByCompraEventoId(id), tickets.countByCompraEventoIdAndSubidoS3True(id));
     }
 
     private Evento buscar(Long id) {

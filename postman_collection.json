@@ -1,12 +1,28 @@
 {
   "info": {
-    "name": "Eventos API",
+    "name": "Eventos y Tickets API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUrl",
       "value": "http://localhost:8080"
+    },
+    {
+      "key": "eventoId",
+      "value": "1"
+    },
+    {
+      "key": "compraId",
+      "value": "1"
+    },
+    {
+      "key": "ticketId",
+      "value": "1"
+    },
+    {
+      "key": "usuario",
+      "value": "juan.perez"
     }
   ],
   "item": [
@@ -115,6 +131,41 @@
               ]
             }
           }
+        },
+        {
+          "name": "Estadisticas del evento",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/{{eventoId}}/estadisticas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "{{eventoId}}",
+                "estadisticas"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Estadisticas de todos los eventos",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/estadisticas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "estadisticas"
+              ]
+            }
+          }
         }
       ]
     },
@@ -143,7 +194,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"eventoId\": 1,\n  \"cantidad\": 3\n}"
+              "raw": "{\n  \"eventoId\": 1,\n  \"usuario\": \"juan.perez\",\n  \"cantidad\": 3\n}"
             }
           }
         },
@@ -176,6 +227,233 @@
                 "api",
                 "compras",
                 "1"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tickets",
+      "item": [
+        {
+          "name": "Generar tickets de una compra",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/generar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets",
+                "generar"
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compraId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar tickets",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar tickets por usuario",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets?usuario={{usuario}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "usuario",
+                  "value": "{{usuario}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar tickets por evento",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets?eventoId={{eventoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "eventoId",
+                  "value": "{{eventoId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Subir ticket a S3",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/{{ticketId}}/subir",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets",
+                "{{ticketId}}",
+                "subir"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Descargar ZIP por usuario",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/descargar?usuario={{usuario}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets",
+                "descargar"
+              ],
+              "query": [
+                {
+                  "key": "usuario",
+                  "value": "{{usuario}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Descargar ZIP por evento",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/descargar?eventoId={{eventoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets",
+                "descargar"
+              ],
+              "query": [
+                {
+                  "key": "eventoId",
+                  "value": "{{eventoId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Descargar ZIP por usuario y evento",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/descargar?usuario={{usuario}}&eventoId={{eventoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets",
+                "descargar"
+              ],
+              "query": [
+                {
+                  "key": "usuario",
+                  "value": "{{usuario}}"
+                },
+                {
+                  "key": "eventoId",
+                  "value": "{{eventoId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Modificar usuario titular",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/{{ticketId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets",
+                "{{ticketId}}"
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"maria.soto\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Eliminar ticket",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/{{ticketId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets",
+                "{{ticketId}}"
               ]
             }
           }
