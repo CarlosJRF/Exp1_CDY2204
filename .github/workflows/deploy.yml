@@ -57,7 +57,14 @@ jobs:
           script: |
             set -e
             # Montar el EFS (solo si aun no esta montado, ej. tras reiniciar el laboratorio)
-            dpkg -s nfs-common >/dev/null 2>&1 || (sudo apt-get update -q && sudo apt-get install -y -q nfs-common)
+            # Cliente NFS: nfs-common en Ubuntu, nfs-utils en Amazon Linux
+            if ! command -v mount.nfs4 >/dev/null 2>&1; then
+              if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update -q && sudo apt-get install -y -q nfs-common
+              else
+                sudo dnf install -y -q nfs-utils
+              fi
+            fi
             sudo mkdir -p $EFS_HOST_PATH
             mountpoint -q $EFS_HOST_PATH || sudo mount -t nfs4 \
               -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport \
