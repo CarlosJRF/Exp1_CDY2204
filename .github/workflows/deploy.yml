@@ -48,7 +48,7 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           EFS_ID: ${{ secrets.EFS_ID }}
-          EFS_HOST_PATH: /mnt/efs
+          EFS_HOST_PATH: /home/ec2-user/efs
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}

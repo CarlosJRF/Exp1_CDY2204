@@ -28,7 +28,7 @@ sin microservicios extra, sin LocalStack/MinIO, sin Swagger).
 | Tema | Decisión |
 |------|----------|
 | Cuenta AWS | AWS Academy Learner Lab, región `us-east-1`. Sin usuarios IAM ni access keys: la EC2 usa el rol **LabInstanceProfile** y el AWS SDK obtiene credenciales del rol (cadena por defecto). |
-| EFS | EFS real de AWS, montado en la EC2 en `/mnt/efs` por el propio workflow; se pasa al contenedor como volumen en `/data/efs`. |
+| EFS | EFS real de AWS, montado en la EC2 en `/home/ec2-user/efs` por el propio workflow; se pasa al contenedor como volumen en `/app/efs` (`/home/ec2-user/efs:/app/efs`). |
 | Arquitectura | Un solo servicio Spring Boot (se agrega el módulo de tickets a la API existente). |
 | Usuario | Campo de texto `usuario` en la compra (body de `POST /api/compras`). Solo `[A-Za-z0-9._@-]` y sin empezar con punto, porque forma parte de la ruta. |
 | Tickets por compra | Uno por entrada: una compra de 3 entradas genera 3 PDF. |
@@ -46,7 +46,7 @@ sin microservicios extra, sin LocalStack/MinIO, sin Swagger).
 
 - Clave S3 / ruta relativa: `evento{eventoId}/{usuario}/ticket{id con 3 dígitos}.pdf` (ej. `evento1/juan.perez/ticket001.pdf`).
   Se usa el id del ticket, así no hay choques si un usuario compra dos veces para el mismo evento.
-- EFS (generados): `${EFS_PATH}/tickets/<ruta relativa>` → en la EC2: `/mnt/efs/tickets/...`
+- EFS (generados): `${EFS_PATH}/tickets/<ruta relativa>` → en la EC2: `/home/ec2-user/efs/tickets/...`
 
 ### Endpoints nuevos o modificados
 
@@ -90,7 +90,7 @@ Para que el contenedor alcance el IMDS, la instancia debe tener *Metadata respon
 ### Despliegue (`.github/workflows/deploy.yml`)
 
 - Job `build-push`: igual que antes (imagen `<usuario>/eventos:latest`).
-- Job `deploy`: copia `docker-compose.yml`, instala el cliente NFS si falta, monta el EFS en `/mnt/efs` si no está
+- Job `deploy`: copia `docker-compose.yml`, instala el cliente NFS si falta, monta el EFS en `/home/ec2-user/efs` si no está
   montado, crea `tickets/`, instala Docker y el plugin compose si faltan, y ejecuta `docker compose pull` / `up -d`.
   Funciona en Ubuntu (`apt-get`) y en Amazon Linux 2023 (`dnf`); en este último el usuario SSH es `ec2-user`.
 - Secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`, `DB_PASSWORD`,
@@ -101,7 +101,7 @@ Para que el contenedor alcance el IMDS, la instancia debe tener *Metadata respon
 ```bash
 ./mvnw -q package -DskipTests          # compilar
 docker compose up -d --build           # levantar app + PostgreSQL en local
-ls -R /mnt/efs                         # (en la EC2) ver tickets generados
+ls -R ~/efs/tickets                    # (en la EC2) ver tickets generados
 aws s3 ls s3://$S3_BUCKET --recursive  # (en la EC2 o CloudShell) ver objetos en S3
 ```
 
