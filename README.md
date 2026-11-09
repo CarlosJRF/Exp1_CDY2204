@@ -42,7 +42,7 @@ antes de levantar. Importa `postman_collection.json` en Postman para probarla.
 
 Cada push a `main` ejecuta `.github/workflows/deploy.yml`, que:
 1. Construye la imagen Docker y la publica en Docker Hub (`<usuario>/eventos:latest`).
-2. Se conecta por SSH a la instancia EC2, monta el EFS en `/mnt/efs` y levanta la app y PostgreSQL con `docker compose`.
+2. Se conecta por SSH a la instancia EC2, monta el EFS en `/mnt/efs`, instala Docker si no está y levanta la app y PostgreSQL con `docker compose`.
 
 La EC2 debe tener el rol `LabInstanceProfile` (acceso a S3 sin llaves) y *Metadata response hop limit* = 2.
 

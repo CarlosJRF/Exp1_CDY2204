@@ -71,7 +71,29 @@ jobs:
               $EFS_ID.efs.$AWS_REGION.amazonaws.com:/ $EFS_HOST_PATH
             sudo mkdir -p $EFS_HOST_PATH/tickets
 
+            # Instalar Docker y el plugin compose (solo si faltan)
+            if ! command -v docker >/dev/null 2>&1; then
+              if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update -q && sudo apt-get install -y -q docker.io
+              else
+                sudo dnf install -y -q docker
+              fi
+              sudo systemctl enable --now docker
+              sudo usermod -aG docker $USER
+            fi
+            if ! sudo docker compose version >/dev/null 2>&1; then
+              if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get install -y -q docker-compose-v2
+              else
+                sudo mkdir -p /usr/local/lib/docker/cli-plugins
+                sudo curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose \
+                  https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)
+                sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+              fi
+            fi
+
+            # sudo -E: el grupo docker recien agregado no aplica en esta sesion; -E conserva las variables
             cd ~/eventos
-            docker compose pull app
-            docker compose up -d --no-build
-            docker image prune -f
+            sudo -E docker compose pull app
+            sudo -E docker compose up -d --no-build
+            sudo docker image prune -f

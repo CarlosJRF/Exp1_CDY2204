@@ -90,8 +90,9 @@ Para que el contenedor alcance el IMDS, la instancia debe tener *Metadata respon
 ### Despliegue (`.github/workflows/deploy.yml`)
 
 - Job `build-push`: igual que antes (imagen `<usuario>/eventos:latest`).
-- Job `deploy`: copia `docker-compose.yml`, instala `nfs-common` si falta, monta el EFS en `/mnt/efs` si no está
-  montado, crea `tickets/`, y ejecuta `docker compose pull` / `up -d`.
+- Job `deploy`: copia `docker-compose.yml`, instala el cliente NFS si falta, monta el EFS en `/mnt/efs` si no está
+  montado, crea `tickets/`, instala Docker y el plugin compose si faltan, y ejecuta `docker compose pull` / `up -d`.
+  Funciona en Ubuntu (`apt-get`) y en Amazon Linux 2023 (`dnf`); en este último el usuario SSH es `ec2-user`.
 - Secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`, `DB_PASSWORD`,
   **`S3_BUCKET`**, **`EFS_ID`** (ej. `fs-0123456789abcdef0`).
 
