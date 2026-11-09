@@ -10,7 +10,6 @@ public class EventosApplication {
 		SpringApplication.run(EventosApplication.class, args);
 	}
 
-	//Prueba de workflow en action 001
-	//Prueba de workflow en action 002
+	
 
 }
