@@ -75,10 +75,15 @@ jobs:
               fi
             fi
 
-            # sudo -E: el grupo docker recien agregado no aplica en esta sesion; -E conserva las variables
+            # Variables para docker compose en un archivo .env (sudo-rs de Ubuntu 26.04 ignora "sudo -E")
             cd ~/eventos
-            sudo -E docker compose pull app
+            umask 077
+            printf 'DOCKERHUB_USERNAME=%s\nDB_PASSWORD=%s\nS3_BUCKET=%s\nAWS_REGION=%s\n' \
+              "$DOCKERHUB_USERNAME" "$DB_PASSWORD" "$S3_BUCKET" "$AWS_REGION" > .env
+
+            # sudo: el grupo docker recien agregado no aplica en esta sesion
+            sudo docker compose pull app
             # Reinicia la BD en cada despliegue (borra el volumen pgdata); los PDF antiguos quedan en S3
-            sudo -E docker compose down -v
-            sudo -E docker compose up -d --no-build
+            sudo docker compose down -v
+            sudo docker compose up -d --no-build
             sudo docker image prune -f
