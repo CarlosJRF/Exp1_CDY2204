@@ -1,50 +1,41 @@
-# Eventos y Tickets API
+# Eventos API (Exp2)
 
-Backend (Java 21 + Spring Boot + PostgreSQL) para registrar eventos, vender entradas y generar tickets PDF.
-Los tickets se generan en **AWS EFS** (almacenamiento temporal) y se suben a **AWS S3** con la ruta
-`evento{id}/{usuario}/ticket{nnn}.pdf`.
+Microservicio (Java 21 + Spring Boot + PostgreSQL) con CRUD de eventos. Al crear un evento se genera su
+**ticket PDF** y se guarda en **AWS S3** con la clave `evento{id}/ticket.pdf`; el PDF se puede descargar desde la API.
 
 ## Endpoints
 
-| Método | Ruta                                 | Descripción                                          |
-|--------|--------------------------------------|------------------------------------------------------|
-| GET    | /api/eventos                         | Lista los eventos                                    |
-| GET    | /api/eventos/{id}                    | Obtiene un evento                                    |
-| POST   | /api/eventos                         | Crea un evento                                       |
-| PUT    | /api/eventos/{id}                    | Actualiza un evento                                  |
-| DELETE | /api/eventos/{id}                    | Elimina un evento (409 si tiene compras)             |
-| GET    | /api/eventos/estadisticas            | Entradas vendidas y ganancias de cada evento + totales |
-| GET    | /api/eventos/{id}/estadisticas       | Ventas y reservas del evento                         |
-| POST   | /api/compras                         | Compra entradas (`eventoId`, `usuario`, `cantidad`)  |
-| GET    | /api/compras                         | Lista las compras                                    |
-| GET    | /api/compras/{id}                    | Obtiene una compra                                   |
-| POST   | /api/tickets/generar                 | Genera un PDF por entrada (`compraId`) y lo sube a S3 |
-| GET    | /api/tickets?usuario=&eventoId=      | Lista tickets (filtros opcionales)                   |
-| POST   | /api/tickets/{id}/subir              | Sube o re-sube el PDF del EFS a S3                   |
-| GET    | /api/tickets/descargar?usuario=&eventoId= | Descarga un .zip con los PDF desde S3 (al menos un filtro) |
-| PUT    | /api/tickets/{id}                    | Cambia el usuario titular (`usuario`)                |
-| DELETE | /api/tickets/{id}                    | Elimina el ticket de S3, EFS y BD                    |
+| Método | Ruta                       | Descripción                                   | Respuestas            |
+|--------|----------------------------|-----------------------------------------------|-----------------------|
+| GET    | /api/eventos               | Lista los eventos                             | 200                   |
+| GET    | /api/eventos/{id}          | Obtiene un evento                             | 200 / 404             |
+| POST   | /api/eventos               | Crea un evento y sube su ticket PDF a S3      | 201 / 400 / 502       |
+| PUT    | /api/eventos/{id}          | Actualiza el evento y regenera el PDF en S3   | 200 / 400 / 404 / 502 |
+| DELETE | /api/eventos/{id}          | Elimina el PDF de S3 y el evento              | 204 / 404 / 502       |
+| GET    | /api/eventos/{id}/ticket   | Descarga el ticket PDF desde S3               | 200 / 404 / 502       |
 
 Ejemplo de evento: `{"nombre":"Concierto Rock","fecha":"2026-12-15","precio":25000}`
-Ejemplo de compra: `{"eventoId":1,"usuario":"juan.perez","cantidad":3}`
+
+Si S3 falla (o `S3_BUCKET` no está configurado), la API responde **502** y no guarda cambios en la base de datos.
 
 ## Ejecutar localmente
 
 ```bash
+export S3_BUCKET=<tu-bucket>
+export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_SESSION_TOKEN=...   # credenciales del Learner Lab
 docker compose up -d --build
 ```
 
-La API queda en `http://localhost:8080` y la carpeta `./efs` hace de EFS. Para probar S3 en local, exporta
-`S3_BUCKET` y las credenciales del Learner Lab (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`)
-antes de levantar. Importa `postman_collection.json` en Postman para probarla.
+La API queda en `http://localhost:8080`. Importa `postman_collection.json` en Postman para probarla.
 
 ## Despliegue
 
-Cada push a `main` ejecuta `.github/workflows/deploy.yml`, que:
+Cada push a la rama **`Exp2`** ejecuta `.github/workflows/deploy.yml`, que:
 1. Construye la imagen Docker y la publica en Docker Hub (`<usuario>/eventos:latest`).
-2. Se conecta por SSH a la instancia EC2, monta el EFS en `/home/ec2-user/efs` (en el contenedor `/app/efs`), instala Docker si no está y levanta la app y PostgreSQL con `docker compose`.
+2. Se conecta por SSH a la EC2, instala Docker si falta y levanta la app y PostgreSQL con `docker compose`.
+   En cada despliegue se ejecuta `docker compose down -v`, por lo que **la base de datos se reinicia**.
 
 La EC2 debe tener el rol `LabInstanceProfile` (acceso a S3 sin llaves) y *Metadata response hop limit* = 2.
 
 Secrets requeridos en el repositorio: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `EC2_HOST`, `EC2_USER`,
-`EC2_SSH_KEY`, `DB_PASSWORD`, `S3_BUCKET`, `EFS_ID`.
+`EC2_SSH_KEY`, `DB_PASSWORD`, `S3_BUCKET`.

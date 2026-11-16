@@ -39,3 +39,6 @@ efs/
 *.odt
 
 .~lock.*#
+
+### Plan de trabajo local (no se sube) ###
+PLAN_Exp2.md

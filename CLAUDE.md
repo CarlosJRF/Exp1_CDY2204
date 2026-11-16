@@ -1,112 +1,96 @@
-# CLAUDE.md — Sistema de Gestión de Reservas de Eventos con Tickets
+# CLAUDE.md — Microservicio de Eventos con Ticket PDF en S3 (Exp2)
 
 Instrucciones para trabajar en este repositorio. Responde y documenta siempre en español.
 
 ## Contexto
 
-Actividad sumativa "Construyendo y desplegando una solución Cloud Native" (CDY2204, semana 3).
-Partimos de una API Spring Boot de eventos y compras (PostgreSQL, Docker, GitHub Actions → Docker Hub → EC2)
-y la extendemos con tickets PDF almacenados en **EFS** (temporal) y **S3** (definitivo).
+Proyecto estudiantil (CDY2204). En Exp1 (rama `main`) se construyó una API de eventos, compras y tickets por entrada
+con PDF en EFS y S3. En **Exp2** (rama `Exp2`) se simplifica a un **microservicio con CRUD completo de eventos**:
+al crear un evento se genera su ticket PDF y se guarda en un bucket S3; el PDF se puede descargar.
 
-Repositorio: https://github.com/CarlosJRF/Exp1_CDY2204 (rama `main`).
+Objetivo: tener un microservicio funcional y estable sobre el cual practicar, en desarrollos futuros,
+**API Gateway** e **IDaaS** (proveedor de identidad). Esos componentes **no** forman parte de Exp2.
 
-## Requisitos del instructivo (fuente de verdad)
+Repositorio: https://github.com/CarlosJRF/Exp1_CDY2204 — se trabaja y se hace push solo en la rama **`Exp2`**.
+`main` conserva la versión Exp1 y no se modifica.
 
-1. **EFS para almacenamiento temporal**: los tickets personalizados se generan y guardan en el EFS montado en la EC2.
-2. **Subida automática a S3**: los tickets se guardan en S3 por evento y usuario, ej. `evento123/usuarioX/ticket001.pdf`.
-3. **Endpoints REST**: generar tickets, subir tickets a S3, descargar tickets por usuario o evento,
-   modificar detalles del ticket, eliminar tickets específicos, estadísticas de ventas y reservas por evento.
-4. **Despliegue automatizado**: un push a `main` construye y publica la imagen en Docker Hub y despliega
-   en EC2 con GitHub Actions, **sin pasos manuales** (incluido el montaje del EFS).
-5. Demostración en vivo con **Postman**.
+## Alcance
 
-**No agregar funcionalidades fuera de esta lista** (sin login, sin tabla de usuarios, sin reservas separadas,
-sin microservicios extra, sin LocalStack/MinIO, sin Swagger).
+- CRUD de eventos + descarga del ticket PDF. **No agregar otros endpoints** ni funcionalidades
+  (sin compras, tickets por usuario, estadísticas, EFS, login, Swagger, LocalStack/MinIO ni microservicios extra).
+- La seguridad (autenticación/autorización) se resolverá después con API Gateway + IDaaS, no en el código del servicio.
 
 ## Decisiones tomadas con el usuario
 
 | Tema | Decisión |
 |------|----------|
-| Cuenta AWS | AWS Academy Learner Lab, región `us-east-1`. Sin usuarios IAM ni access keys: la EC2 usa el rol **LabInstanceProfile** y el AWS SDK obtiene credenciales del rol (cadena por defecto). |
-| EFS | EFS real de AWS, montado en la EC2 en `/home/ec2-user/efs` por el propio workflow; se pasa al contenedor como volumen en `/app/efs` (`/home/ec2-user/efs:/app/efs`). |
-| Arquitectura | Un solo servicio Spring Boot (se agrega el módulo de tickets a la API existente). |
-| Usuario | Campo de texto `usuario` en la compra (body de `POST /api/compras`). Solo `[A-Za-z0-9._@-]` y sin empezar con punto, porque forma parte de la ruta. |
-| Tickets por compra | Uno por entrada: una compra de 3 entradas genera 3 PDF. |
-| Generación | Endpoint explícito `POST /api/tickets/generar` con `compraId`. Comprar no genera tickets. |
-| Subida a S3 | Automática al generar. Si falla, el ticket queda con `subidoS3=false` y se reintenta con `POST /api/tickets/{id}/subir`. |
-| Descarga | `.zip` armado con los PDF leídos desde **S3** (solo tickets con `subidoS3=true`), con carpetas `evento{id}/{usuario}/ticket{nnn}.pdf`. Filtros `usuario` y/o `eventoId` (al menos uno, combinables); 404 si no hay tickets. Ya no se copian descargas al EFS. |
-| Modificar | Solo el **usuario titular**: el PDF se regenera en la nueva ruta del EFS, se sube a S3 y se borran el archivo y el objeto anteriores. |
-| Estadísticas | Compra = reserva. **Ganancias = suma de `precioTotal` de las compras** (no hay costos). Por evento (`/api/eventos/{id}/estadisticas`): reservas, entradas vendidas, ganancias, tickets generados y subidos. Todos los eventos (`/api/eventos/estadisticas`): solo entradas vendidas y ganancias de cada evento, más los totales generales. |
-| Formato | PDF generado con Apache PDFBox. |
-| Git | Commit en `main`; el push lo hace el usuario cuando la infraestructura esté lista. |
+| Cuenta AWS | AWS Academy Learner Lab, región `us-east-1`. Sin access keys en la EC2: el SDK usa el rol **LabInstanceProfile** (cadena de credenciales por defecto). |
+| Persistencia | Datos del evento (`nombre`, `fecha`, `precio`) en PostgreSQL; solo el PDF se guarda en S3. |
+| EFS | Eliminado (código, compose, workflow). El PDF se genera en memoria y se sube directo a S3. |
+| Generación del PDF | Al crear (POST). En PUT se regenera y sobrescribe. En DELETE se borra de S3. |
+| Clave S3 | `evento{id}/ticket.pdf` (ej. `evento1/ticket.pdf`). |
+| Descarga | `GET /api/eventos/{id}/ticket` lee el PDF desde S3 y lo devuelve como `application/pdf` (attachment `evento{id}-ticket.pdf`). |
+| Fallo de S3 | POST/PUT/DELETE responden **502** y la operación en BD se revierte (`@Transactional`): BD y S3 siempre consistentes. |
+| Bucket | Ya existe; se pasa por el secret `S3_BUCKET`. |
+| BD en la EC2 | El workflow ejecuta `docker compose down -v` en **cada** deploy: la BD queda vacía tras desplegar (aceptado; los PDF antiguos quedan en S3). |
+| Formato PDF | Apache PDFBox. |
+| Git | Rama `Exp2`; Claude hace commit y `git push origin Exp2`. |
 
-## Diseño
+## Endpoints
 
-### Rutas de archivos
+| Método | Ruta | Descripción | Respuestas |
+|--------|------|-------------|-----------|
+| GET | `/api/eventos` | Lista eventos | 200 |
+| GET | `/api/eventos/{id}` | Obtiene un evento | 200 / 404 |
+| POST | `/api/eventos` | Crea el evento, genera el PDF y lo sube a S3 | 201 / 400 / 502 |
+| PUT | `/api/eventos/{id}` | Actualiza el evento y regenera el PDF en S3 | 200 / 400 / 404 / 502 |
+| DELETE | `/api/eventos/{id}` | Borra el PDF de S3 y el evento | 204 / 404 / 502 |
+| GET | `/api/eventos/{id}/ticket` | Descarga el PDF desde S3 | 200 / 404 / 502 |
 
-- Clave S3 / ruta relativa: `evento{eventoId}/{usuario}/ticket{id con 3 dígitos}.pdf` (ej. `evento1/juan.perez/ticket001.pdf`).
-  Se usa el id del ticket, así no hay choques si un usuario compra dos veces para el mismo evento.
-- EFS (generados): `${EFS_PATH}/tickets/<ruta relativa>` → en la EC2: `/home/ec2-user/efs/tickets/...`
+Body de POST/PUT: `{"nombre":"Concierto Rock","fecha":"2026-12-15","precio":25000}`.
 
-### Endpoints nuevos o modificados
+## Código (paquete `cl.duoc.eventos`)
 
-| Método | Ruta | Descripción | OK / errores |
-|--------|------|-------------|--------------|
-| POST | `/api/compras` | Ahora exige `usuario` además de `eventoId` y `cantidad` | 201 / 400 / 404 |
-| POST | `/api/tickets/generar` | Body `{"compraId":1}`. Genera un PDF por entrada en EFS y lo sube a S3 | 201 / 404 / 409 si ya tiene tickets |
-| GET | `/api/tickets?usuario=&eventoId=` | Lista tickets (filtros opcionales), para conocer ids y estado | 200 |
-| POST | `/api/tickets/{id}/subir` | Sube (o re-sube) el PDF del EFS a S3 | 200 / 404 / 502 |
-| GET | `/api/tickets/descargar?usuario=&eventoId=` | `.zip` con los PDF desde S3 (filtros combinables) | 200 / 400 sin filtro / 404 sin tickets / 502 |
-| PUT | `/api/tickets/{id}` | Body `{"usuario":"nuevo"}`. Cambia titular, mueve archivo en EFS y S3 | 200 / 400 / 404 |
-| DELETE | `/api/tickets/{id}` | Borra el ticket de BD, EFS y S3 | 204 / 404 |
-| GET | `/api/eventos/estadisticas` | Entradas vendidas y ganancias de cada evento + totales generales | 200 |
-| GET | `/api/eventos/{id}/estadisticas` | Estadísticas de ventas y reservas del evento | 200 / 404 |
+- `model/Evento`: entidad JPA (tabla `eventos`) con validaciones (`@NotBlank`, `@NotNull`, `@PositiveOrZero`).
+- `repository/EventoRepository`: `JpaRepository<Evento, Long>`.
+- `config/S3Config`: bean `S3Client` con la región de `AWS_REGION`, sin llaves en el código.
+- `service/TicketPdfService`: genera el PDF en memoria y hace put/get/delete en S3. **Única clase que toca S3.**
+- `service/EventoService`: CRUD transaccional; coordina BD + `TicketPdfService`.
+- `controller/EventoController`: `/api/eventos`, delega en `EventoService`.
+- Estilo: inyección por constructor, `ResponseStatusException` para errores, sin Lombok, comentarios breves en español.
 
-Los endpoints existentes de eventos y compras se mantienen.
-
-### Código (paquete `cl.duoc.eventos`)
-
-- `model/Ticket`: id, compra (`@ManyToOne`), usuario, rutaEfs, claveS3, subidoS3, fechaGeneracion.
-- `model/Compra` + `dto/CompraRequest`/`CompraResponse`: campo `usuario`.
-- `repository/TicketRepository`: búsquedas por compra, usuario y evento; conteos para estadísticas.
-- `config/S3Config`: bean `S3Client` con la región de `AWS_REGION` y la cadena de credenciales por defecto.
-- `service/TicketService`: genera PDF, escribe en EFS, sube/descarga/borra en S3. Es la única clase que toca S3 y disco.
-- `controller/TicketController`, `dto/Ticket*`, `dto/EstadisticasResponse`, `dto/EstadisticasGeneralesResponse`, `dto/VentasEventoResponse`.
-- Mantener el estilo actual: inyección por constructor, `ResponseStatusException` para errores, records para DTOs,
-  sin Lombok, comentarios breves en español.
-
-### Configuración (variables de entorno)
+## Configuración (variables de entorno)
 
 | Variable | Uso | Default local |
 |----------|-----|---------------|
-| `DB_URL`, `DB_USER`, `DB_PASSWORD` | PostgreSQL (sin cambios) | localhost |
-| `EFS_PATH` | Carpeta raíz del EFS dentro del contenedor | `./efs` |
-| `S3_BUCKET` | Bucket de tickets | (vacío → la subida falla con 502 y `subidoS3=false`) |
+| `DB_URL`, `DB_USER`, `DB_PASSWORD` | PostgreSQL | localhost / postgres |
+| `S3_BUCKET` | Bucket de tickets | vacío → POST/PUT/DELETE/descarga responden 502 |
 | `AWS_REGION` | Región del cliente S3 | `us-east-1` |
 
 En la EC2 nunca se configuran access keys: las credenciales vienen del rol de la instancia (IMDS).
 Para que el contenedor alcance el IMDS, la instancia debe tener *Metadata response hop limit* = 2.
 
-### Despliegue (`.github/workflows/deploy.yml`)
+## Despliegue (`.github/workflows/deploy.yml`)
 
-- Job `build-push`: igual que antes (imagen `<usuario>/eventos:latest`).
-- Job `deploy`: copia `docker-compose.yml`, instala el cliente NFS si falta, monta el EFS en `/home/ec2-user/efs` si no está
-  montado, crea `tickets/`, instala Docker y el plugin compose si faltan, y ejecuta `docker compose pull` / `up -d`.
-  Funciona en Ubuntu (`apt-get`) y en Amazon Linux 2023 (`dnf`); en este último el usuario SSH es `ec2-user`.
-- Secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`, `DB_PASSWORD`,
-  **`S3_BUCKET`**, **`EFS_ID`** (ej. `fs-0123456789abcdef0`).
+- Se dispara con push a **`Exp2`**.
+- Job `build-push`: construye y publica `<usuario>/eventos:latest` en Docker Hub.
+- Job `deploy`: copia `docker-compose.yml` a `~/eventos`, instala Docker y compose si faltan (Ubuntu `apt-get` /
+  Amazon Linux 2023 `dnf`), `docker compose pull app`, `down -v` (reinicia la BD) y `up -d`.
+- Secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`, `DB_PASSWORD`, `S3_BUCKET`.
+  (`EFS_ID` ya no se usa.)
 
 ## Comandos útiles
 
 ```bash
 ./mvnw -q package -DskipTests          # compilar
 docker compose up -d --build           # levantar app + PostgreSQL en local
-ls -R ~/efs/tickets                    # (en la EC2) ver tickets generados
-aws s3 ls s3://$S3_BUCKET --recursive  # (en la EC2 o CloudShell) ver objetos en S3
+aws s3 ls s3://$S3_BUCKET --recursive  # (en la EC2 o CloudShell) ver PDF en S3
 ```
 
 ## Documentación
 
 - `README.md` y `postman_collection.json` se actualizan con cada cambio de endpoints.
-- `Guia_Exp1_CDY2204.odt` es material de estudio personal (ignorado por git): explica conceptos cloud aplicados
-  y el paso a paso de pruebas con Postman. Se mantiene sincronizada con el sistema.
+- `Guia_Exp2_CDY2204.odt`: material de estudio personal (ignorado por git, `*.odt`). Explica los conceptos cloud
+  aplicados, las pruebas con Postman y una introducción a API Gateway e IDaaS. Se mantiene sincronizada con el sistema.
+  `Guia_Exp1_CDY2204.odt` queda como referencia de Exp1.
+- `PLAN_Exp2.md`: plan de trabajo de la refactorización (ignorado por git).

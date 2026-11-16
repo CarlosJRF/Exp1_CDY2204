@@ -2,7 +2,7 @@ name: Build y Deploy a EC2
 
 on:
   push:
-    branches: [main]
+    branches: [Exp2]
 
 env:
   AWS_REGION: us-east-1
@@ -47,30 +47,13 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          EFS_ID: ${{ secrets.EFS_ID }}
-          EFS_HOST_PATH: /home/ec2-user/efs
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: DOCKERHUB_USERNAME,DB_PASSWORD,S3_BUCKET,EFS_ID,EFS_HOST_PATH,AWS_REGION
+          envs: DOCKERHUB_USERNAME,DB_PASSWORD,S3_BUCKET,AWS_REGION
           script: |
             set -e
-            # Montar el EFS (solo si aun no esta montado, ej. tras reiniciar el laboratorio)
-            # Cliente NFS: nfs-common en Ubuntu, nfs-utils en Amazon Linux
-            if ! command -v mount.nfs4 >/dev/null 2>&1; then
-              if command -v apt-get >/dev/null 2>&1; then
-                sudo apt-get update -q && sudo apt-get install -y -q nfs-common
-              else
-                sudo dnf install -y -q nfs-utils
-              fi
-            fi
-            sudo mkdir -p $EFS_HOST_PATH
-            mountpoint -q $EFS_HOST_PATH || sudo mount -t nfs4 \
-              -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport \
-              $EFS_ID.efs.$AWS_REGION.amazonaws.com:/ $EFS_HOST_PATH
-            sudo mkdir -p $EFS_HOST_PATH/tickets
-
             # Instalar Docker y el plugin compose (solo si faltan)
             if ! command -v docker >/dev/null 2>&1; then
               if command -v apt-get >/dev/null 2>&1; then
@@ -95,5 +78,7 @@ jobs:
             # sudo -E: el grupo docker recien agregado no aplica en esta sesion; -E conserva las variables
             cd ~/eventos
             sudo -E docker compose pull app
+            # Reinicia la BD en cada despliegue (borra el volumen pgdata); los PDF antiguos quedan en S3
+            sudo -E docker compose down -v
             sudo -E docker compose up -d --no-build
             sudo docker image prune -f
