@@ -54,6 +54,14 @@ jobs:
           envs: DOCKERHUB_USERNAME,DB_PASSWORD,S3_BUCKET,AWS_REGION
           script: |
             set -e
+            # Swap de 1 GB (solo si no existe): la instancia tiene ~1 GB de RAM y se queda sin memoria
+            # cuando corren a la vez la app, PostgreSQL y las actualizaciones automaticas de Ubuntu
+            if ! swapon --show | grep -q /swapfile; then
+              [ -f /swapfile ] || { sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile && sudo mkswap -q /swapfile; }
+              sudo swapon /swapfile
+            fi
+            grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+
             # Instalar Docker y el plugin compose (solo si faltan)
             if ! command -v docker >/dev/null 2>&1; then
               if command -v apt-get >/dev/null 2>&1; then

@@ -74,7 +74,8 @@ Para que el contenedor alcance el IMDS, la instancia debe tener *Metadata respon
 
 - Se dispara con push a **`Exp2`**.
 - Job `build-push`: construye y publica `<usuario>/eventos:latest` en Docker Hub.
-- Job `deploy`: copia `docker-compose.yml` a `~/eventos`, instala Docker y compose si faltan (Ubuntu `apt-get` /
+- Job `deploy`: copia `docker-compose.yml` a `~/eventos`, crea un swap de 1 GB si no existe (la EC2 tiene ~1 GB de RAM
+  y sin swap se colgaba al coincidir con las actualizaciones automáticas de Ubuntu), instala Docker y compose si faltan (Ubuntu `apt-get` /
   Amazon Linux 2023 `dnf`), escribe `~/eventos/.env` (permisos 600) con las variables para compose,
   `docker compose pull app`, `down -v` (reinicia la BD) y `up -d`.
   No usar `sudo -E`: el `sudo-rs` de Ubuntu 26.04 lo ignora y las variables no llegan a compose.
