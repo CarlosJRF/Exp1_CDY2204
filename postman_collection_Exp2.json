@@ -1,0 +1,346 @@
+{
+  "info": {
+    "name": "Eventos API - Exp2 (ciclo completo)",
+    "description": "Ciclo completo encadenado del CRUD de eventos con validación del ticket PDF en S3. Ejecutar en orden con el Collection Runner (Run collection). Al terminar el evento creado queda eliminado.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 Crear evento",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Devuelve id\", () => pm.expect(pm.response.json().id).to.be.a(\"number\"));",
+              "pm.collectionVariables.set(\"eventoId\", pm.response.json().id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/eventos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "eventos"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Concierto Rock\",\n  \"fecha\": \"2026-12-15\",\n  \"precio\": 25000\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Crea el evento, genera su ticket PDF y lo sube a S3 (evento{id}/ticket.pdf). Guarda el id en eventoId."
+      }
+    },
+    {
+      "name": "02 Listar eventos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/eventos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "eventos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "03 Obtener evento",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/eventos/{{eventoId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "eventos",
+            "{{eventoId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "04 Descargar ticket PDF",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Content-Type application/pdf\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/pdf\"));",
+              "pm.test(\"Content-Disposition evento{id}-ticket.pdf\", () => {",
+              "    const cd = pm.response.headers.get(\"Content-Disposition\") || \"\";",
+              "    pm.expect(cd).to.include(\"attachment\");",
+              "    pm.expect(cd).to.include(`filename=\"evento${pm.collectionVariables.get(\"eventoId\")}-ticket.pdf\"`);",
+              "});",
+              "const pdf = pm.response.stream;",
+              "pm.test(\"Archivo no vacío\", () => pm.expect(pdf.length).to.be.above(0));",
+              "pm.test(\"Comienza con la firma %PDF\", () => pm.expect(pdf.slice(0, 4).toString()).to.eql(\"%PDF\"));",
+              "pm.collectionVariables.set(\"pdfV1\", pdf.toString(\"base64\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/eventos/{{eventoId}}/ticket",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "eventos",
+            "{{eventoId}}",
+            "ticket"
+          ]
+        },
+        "description": "Lee el PDF desde S3. Para abrirlo: Save response > Save to a file."
+      }
+    },
+    {
+      "name": "05 Actualizar evento",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/eventos/{{eventoId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "eventos",
+            "{{eventoId}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Concierto Rock - Nueva fecha\",\n  \"fecha\": \"2026-12-20\",\n  \"precio\": 30000\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Actualiza el evento y regenera (sobrescribe) el PDF en S3."
+      }
+    },
+    {
+      "name": "06 Descargar ticket PDF actualizado",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Content-Type application/pdf\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/pdf\"));",
+              "pm.test(\"Content-Disposition evento{id}-ticket.pdf\", () => {",
+              "    const cd = pm.response.headers.get(\"Content-Disposition\") || \"\";",
+              "    pm.expect(cd).to.include(\"attachment\");",
+              "    pm.expect(cd).to.include(`filename=\"evento${pm.collectionVariables.get(\"eventoId\")}-ticket.pdf\"`);",
+              "});",
+              "const pdf = pm.response.stream;",
+              "pm.test(\"Archivo no vacío\", () => pm.expect(pdf.length).to.be.above(0));",
+              "pm.test(\"Comienza con la firma %PDF\", () => pm.expect(pdf.slice(0, 4).toString()).to.eql(\"%PDF\"));",
+              "pm.collectionVariables.set(\"pdfV2\", pdf.toString(\"base64\"));",
+              "pm.test(\"El PDF cambió tras el PUT\", () => pm.expect(pm.collectionVariables.get(\"pdfV2\")).to.not.eql(pm.collectionVariables.get(\"pdfV1\")));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/eventos/{{eventoId}}/ticket",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "eventos",
+            "{{eventoId}}",
+            "ticket"
+          ]
+        },
+        "description": "Debe ser un PDF distinto al del paso 04 (datos nuevos)."
+      }
+    },
+    {
+      "name": "07 Eliminar evento",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/eventos/{{eventoId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "eventos",
+            "{{eventoId}}"
+          ]
+        },
+        "description": "Borra el PDF de S3 y el evento de la base de datos."
+      }
+    },
+    {
+      "name": "08 Obtener evento eliminado (404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 404\", () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/eventos/{{eventoId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "eventos",
+            "{{eventoId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "09 Descargar ticket eliminado (404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 404\", () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/eventos/{{eventoId}}/ticket",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "eventos",
+            "{{eventoId}}",
+            "ticket"
+          ]
+        },
+        "description": "El PDF ya no existe: el DELETE lo borró de S3."
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://100.61.249.100:8080"
+    },
+    {
+      "key": "eventoId",
+      "value": ""
+    },
+    {
+      "key": "pdfV1",
+      "value": ""
+    },
+    {
+      "key": "pdfV2",
+      "value": ""
+    }
+  ]
+}

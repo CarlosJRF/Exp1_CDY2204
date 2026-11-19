@@ -93,7 +93,8 @@ aws s3 ls s3://$S3_BUCKET --recursive  # (en la EC2 o CloudShell) ver PDF en S3
 
 ## Documentación
 
-- `README.md` y `postman_collection.json` se actualizan con cada cambio de endpoints.
+- `README.md`, `postman_collection.json` (requests sueltos) y `postman_collection_Exp2.json` (ciclo completo
+  encadenado con validación del PDF, `baseUrl` de la EC2) se actualizan con cada cambio de endpoints.
 - `Guia_Exp2_CDY2204.odt`: material de estudio personal (ignorado por git, `*.odt`). Explica los conceptos cloud
   aplicados, las pruebas con Postman y una introducción a API Gateway e IDaaS. Se mantiene sincronizada con el sistema.
   `Guia_Exp1_CDY2204.odt` queda como referencia de Exp1.

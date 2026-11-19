@@ -26,7 +26,15 @@ export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_SESSION_TOKEN=...   #
 docker compose up -d --build
 ```
 
-La API queda en `http://localhost:8080`. Importa `postman_collection.json` en Postman para probarla.
+La API queda en `http://localhost:8080`.
+
+## Pruebas con Postman
+
+- `postman_collection.json`: requests sueltos del CRUD y casos de error (`baseUrl` = `http://localhost:8080`).
+- `postman_collection_Exp2.json`: ciclo completo encadenado contra la EC2 (`baseUrl` = `http://100.61.249.100:8080`).
+  Crear → listar → obtener → descargar PDF → actualizar → descargar PDF actualizado → eliminar → 404.
+  Valida el PDF (`Content-Type`, `Content-Disposition`, firma `%PDF`, que cambie tras el PUT).
+  Ejecutar con *Run collection* o `postman collection run postman_collection_Exp2.json`.
 
 ## Despliegue
 
